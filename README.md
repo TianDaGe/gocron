@@ -49,7 +49,9 @@ func main() {
 	// function At() take a string like 'hour:min'
 	gocron.Every(1).Day().At("10:30").Do(task)
 	gocron.Every(1).Monday().At("18:30").Do(task)
-
+	
+	gocron.Every(1).Month().At("10:30 07").Do(task)
+	gocron.Every(2).Months().At("18:30 08").Do(task)
 	// remove, clear and next_run
 	_, time := gocron.NextRun()
 	fmt.Println(time)
