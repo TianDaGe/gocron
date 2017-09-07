@@ -142,6 +142,16 @@ func (j *Job) At(t string) *Job {
 		} else {
 			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-7, hour, min, 0, 0, loc)
 		}
+	} else if j.unit == "months" {
+		if len(t) == 8 {
+			day := int((t[6]-'0')*10 + (t[7] - '0'))
+			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), day, hour, min, 0, 0, loc)
+			if time.Now().After(j.lastRun) {
+				j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), day, hour, min, 0, 0, loc)
+			} else {
+				j.lastRun = time.Date(time.Now().Year(), time.Now().Month()-time.Month(j.interval), day, hour, min, 0, 0, loc)
+			}
+		}
 	}
 	return j
 }
@@ -155,7 +165,8 @@ func (j *Job) scheduleNextRun() {
 				i = 7 + i
 			}
 			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day()-int(i), 0, 0, 0, 0, loc)
-
+		} else if j.unit == "months" {
+			j.lastRun = time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(), 0, 0, 0, 0, loc)
 		} else {
 			j.lastRun = time.Now()
 		}
@@ -165,6 +176,10 @@ func (j *Job) scheduleNextRun() {
 		// translate all the units to the Seconds
 		j.nextRun = j.lastRun.Add(j.period * time.Second)
 	} else {
+		if j.unit == "months" {
+			j.nextRun = time.Date(j.lastRun.Year(), j.lastRun.Month()+time.Month(j.interval), j.lastRun.Day(), j.lastRun.Hour(), j.lastRun.Minute(), 0, 0, loc)
+			return
+		}
 		switch j.unit {
 		case "minutes":
 			j.period = time.Duration(j.interval * 60)
@@ -336,6 +351,19 @@ func (j *Job) Weeks() *Job {
 	return j
 }
 
+func (j *Job) Month() (job *Job) {
+	if j.interval != 1 {
+		panic("")
+	}
+	job = j.Months()
+	return
+}
+
+func (j *Job) Months() *Job {
+	j.unit = "months"
+	return j
+}
+
 // Class Scheduler, the only data member is the list of jobs.
 type Scheduler struct {
 	// Array store jobs
@@ -380,6 +408,15 @@ func (s *Scheduler) getRunnableJobs() (running_jobs [MAXJOBNUM]*Job, n int) {
 		}
 	}
 	return runnableJobs, n
+}
+
+// Datetime when the next job should run.
+func (s *Scheduler) LastRun() (*Job, time.Time) {
+	if s.size <= 0 {
+		return nil, time.Now()
+	}
+	sort.Sort(s)
+	return s.jobs[0], s.jobs[0].lastRun
 }
 
 // Datetime when the next job should run.
@@ -523,4 +560,9 @@ func Remove(j interface{}) {
 // NextRun gets the next running time
 func NextRun() (job *Job, time time.Time) {
 	return defaultScheduler.NextRun()
+}
+
+// LastRun gets the last running time
+func LastRun() (job *Job, time time.Time) {
+	return defaultScheduler.LastRun()
 }
